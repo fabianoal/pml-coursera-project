@@ -1,0 +1,40 @@
+---
+title: "Activites Classifier"
+author: "Fabiano A. Lima"
+date: "28 de janeiro de 2016"
+output: html_document
+---
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+
+library(dplyr)
+trainingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+setwd("C:\\Users\\Fabiano\\Documents\\GitHub\\pml coursera project")
+
+download.file(trainingUrl, destfile="./pml-training.csv")
+download.file(testingUrl, destfile="./pml-testing.csv")
+
+training <- read.csv("./pml-training.csv")
+testing <- read.csv("./pml-testing.csv")
+
+summary(training)
+summary(testing)
+#Selecting only columns with sensor data and subject name
+training <- training[,c(2,8:160)]
+
+library(caret)
+dim(training)
+
+preProc <- preProcess(training[,-154],method="pca")
+trainPC <- predict(preProc,training[,-154])
+fit.rf <- train(training$classe ~ ., data=trainPC, method="rf")
+
+```
+
+# Intr
