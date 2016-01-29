@@ -15,7 +15,7 @@ library(dplyr)
 trainingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
 testingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
 
-setwd("C:\\Users\\Fabiano\\Documents\\GitHub\\pml coursera project")
+setwd("/Users/fabianoal/Documents/GitHub/pml-coursera-project")
 
 download.file(trainingUrl, destfile="./pml-training.csv")
 download.file(testingUrl, destfile="./pml-testing.csv")
@@ -33,7 +33,20 @@ dim(training)
 
 preProc <- preProcess(training[,-154],method="pca")
 trainPC <- predict(preProc,training[,-154])
-fit.rf <- train(training$classe ~ ., data=trainPC, method="rf")
+
+library(doMC)
+registerDoMC(cores = detectCores() - 1)
+
+if(file.exists("./fit.mda")) {
+    load("./fit.mda")
+} else {
+    fit.rf <- train(training$classe ~ ., data=trainPC, method="rf")
+    save(fit.rf, file="./fit.mda")
+}
+
+
+
+
 
 ```
 
