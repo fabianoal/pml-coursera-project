@@ -16,6 +16,7 @@ trainingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training
 testingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
 
 setwd("/Users/fabianoal/Documents/GitHub/pml-coursera-project")
+setwd("C:\\Users\\Fabiano\\Documents\\GitHub\\pml coursera project")
 
 download.file(trainingUrl, destfile="./pml-training.csv")
 download.file(testingUrl, destfile="./pml-testing.csv")
@@ -23,28 +24,74 @@ download.file(testingUrl, destfile="./pml-testing.csv")
 training <- read.csv("./pml-training.csv")
 testing <- read.csv("./pml-testing.csv")
 
-summary(training)
-summary(testing)
 #Selecting only columns with sensor data and subject name
 training <- training[,c(2,8:160)]
+testing <- testing[,c(2,8:160)]
 
-library(caret)
+#Lots of columns were imported as factors instead numbers. Let's fix that
+table(unlist(lapply(training, class)) == unlist(lapply(testing, class)))
+
+#The variables ranging from 2 to 153 have to be numeric
+training[,2:153] <- apply(training[,2:153], 2, function(x) as.numeric(as.character(x)))
+testing[,2:153] <- apply(testing[,2:153], 2, function(x) as.numeric(as.character(x)))
+
+#Now all columns (except the last one) have the same datatype and all of them are numeric.
+table(unlist(lapply(training, class)) == unlist(lapply(testing, class)))
+
+
+#Separationg training and validation sets...
+
+trainingRef <- training
+
+inTrain <- createDataPartition(trainingRef$classe, p=.75, list=FALSE)
+
+training <- trainingRef[inTrain,]
+
+validation <- trainingRef[-inTrain, ]
+
+#From now on, all operations has to be done on the training dataset
+
+#Excluding columns with near zero variation
+nzv <- nearZeroVar(training, saveMetrics= TRUE)
+training <- training[,!nzv$nzv]
 dim(training)
+ncol(training)
 
-preProc <- preProcess(training[,-154],method="pca")
-trainPC <- predict(preProc,training[,-154])
+#We have been left with 122 variables. Time to see the correlation between them
+corrCols <- na.exclude((findCorrelation(training[,2:(ncol(training)-1)], cutoff = .98)+1)*-1)
+training <- training[,corrCols]
 
-library(doMC)
-registerDoMC(cores = detectCores() - 1)
+#We new have 83 columns, excluding user_name and classe, it's 78 columns
+upperIndex <- (ncol(training)-1)
+preProc <- preProcess(training[,2:upperIndex],method=c("pca"))
+
+trainingPCA <- data.frame(
+                user_name = training[,1], 
+                predict(preProc, training[,2:upperIndex]), 
+                classe = training[,upperIndex + 1])
+
+summary(trainingPCA)
+
+
+#library(doMC)
+#registerDoMC(cores = detectCores() - 1)
 
 if(file.exists("./fit.mda")) {
     load("./fit.mda")
 } else {
-    fit.rf <- train(training$classe ~ ., data=trainPC, method="rf")
+    fit.rf <- train(classe ~ ., data=trainingPCA, method="rf")
     save(fit.rf, file="./fit.mda")
 }
 
+#Preprocessing the validation set using the calculated arrays and models used on the testing set
+validation <- validation[,!nzv$nzv]
+validation <- validation[,corrCols]
+validationPCA <- data.frame(user_name = validation[,1], predict(preProc, validation[,2:upperIndex]), classe = validation[,upperIndex + 1])
 
+summary(trainingPCA)
+confusionMatrix(validationPCA$classe, predict(fit.rf, newdata=validationPCA, type="raw"))
+
+preProc.testing <- preProcess(test)
 
 
 
