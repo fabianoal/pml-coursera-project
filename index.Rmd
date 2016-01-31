@@ -7,6 +7,10 @@ output:
     theme: journal
 ---
 
+## About this submission
+
+It seems that there is a problem with the submission page. So I'm uploading this very Html that can be viewed alone, but also it is available at github at [this]( http://fabianoal.github.io/pml-coursera-project/ "GitHub repo address") address.
+
 ## Introduction
 
 The goal of this paper is to use data from sensors in devices such as Jawbone Up, Nike FuelBand and Fitbit  collected by participants of the project '' Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements'' (http://groupware.les.inf.puc-rio.br/har), and build a prediction model to, based on the data collected by the devices in controlled situations (where subjects were asked to make specifics kind of mistakes when doing the exercises) identify these mistakes.
@@ -79,7 +83,7 @@ table(colsLess95NAs)
 
 ### Removing columns with almost no variation
 
-Next step, it's necessary to identify columns that don't exibit significant variation. Theses variables should be excluded from our prediction model because they offer no significance in changing the expected result.
+Next step, it's necessary to identify columns that don't exhibit significant variation. Theses variables should be excluded from our prediction model because they offer no significance in changing the expected result.
 
 ```{r collapse=TRUE, results='hide'}
 
@@ -90,7 +94,7 @@ training <- training[,!nzv$nzv]
 
 ## Building a prediction model
 
-Now we're left with only `r ncol(training)` variables. For creating our model, we will center, scale and do a Principal Component Analysis for preprocessing the data, and then, using the Random Forest algorithm to fit a model for prediction.
+Now we're left with only `r ncol(training)` variables. For creating our model, we will center, scale and do a Principal Component Analysis for pre-processing the data, and then, using the Random Forest algorithm to fit a model for prediction.
 
 It takes almost 20 minutes to build the model, so we use the parallel package to speedup the training. We also check if there already is a previously built model. If it's the case, we load the model from the file.
 
@@ -126,7 +130,7 @@ cm <- confusionMatrix(validation$classe, predict(fit.rf, newdata=validation))
 cm
 ```
 
-As we can see in the confusionMatrix output, the accuracy on the validation set is `r format(cm$overall[[1]] * 100, digits = 3)`%. Thus, it seems that random forest algorithm plus the pre processing steps serve well to the purpose of predicting the kind of mistake of a given exercise.
+As we can see in the confusionMatrix output, the accuracy on the validation set is `r format(cm$overall[[1]] * 100, digits = 3)`%. Thus, it seems that random forest algorithm plus the pre-processing steps serve well to the purpose of predicting the kind of mistake of a given exercise.
 
 ##Predicting values
 
