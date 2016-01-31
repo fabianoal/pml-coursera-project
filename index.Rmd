@@ -1,0 +1,140 @@
+---
+title: "Coursera Pratical Machine Learning Project"
+author: "Fabiano A. Lima"
+output: 
+  html_document: 
+    highlight: tango
+    theme: journal
+---
+
+## Introduction
+
+The goal of this paper is to use data from sensors in devices such as Jawbone Up, Nike FuelBand and Fitbit  collected by participants of the project '' Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements'' (http://groupware.les.inf.puc-rio.br/har), and build a prediction model to, based on the data collected by the devices in controlled situations (where subjects were asked to make specifics kind of mistakes when doing the exercises) identify these mistakes.
+
+## Loading the data
+
+First step in our work, is to download the training and testing sets and load the data
+
+```{r results='hide', collapse=TRUE, warning=FALSE}
+
+library(foreach)
+library(caret)
+library(doParallel)
+library(formatR)
+
+setwd("C:\\Users\\Fabiano\\Documents\\GitHub\\pml coursera project")
+
+if (!(file.exists("./pml-training.csv") &&  file.exists("./pml-testing.csv"))){
+  trainingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+  testingUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+  download.file(trainingUrl, destfile="./pml-training.csv")
+  download.file(testingUrl, destfile="./pml-testing.csv")
+}
+training <- read.csv("./pml-training.csv", na.strings=c("NA","NaN", " ", "", "#DIV/0!"), dec = ".")
+testing <- read.csv("./pml-testing.csv", na.strings=c("NA","NaN", " ", "", "#DIV/0!"), dec = ".")
+```
+
+
+## Cleaning the data
+
+### Selecting columns with real data
+
+Now, we're going to select only columns that has data about the movements of the participants and their name (the subject seems to be a good predictor to be used). Other data (like date, hour and etc.) will not be used as predictors because they are not related with the variable we're trying to predict.
+
+```{r collapse=TRUE, results='hide'}
+#Selecting only columns with sensor data and subject name
+training <- training[,c(2,8:160)]
+testing <- testing[,c(2,8:160)]
+
+```
+
+### Separating training and validation sets
+
+Now it's time to separate our data set used to build our model in a training and validation sets.
+
+```{r collapse=TRUE, results='hide'}
+trainingRef <- training
+inTrain <- createDataPartition(trainingRef$classe, p=.75, list=FALSE)
+training <- trainingRef[inTrain,]
+validation <- trainingRef[-inTrain, ]
+```
+
+
+### Removing columns with almost no data
+
+Looking at the summary of data sets, we see that a lot of columns have more than 95% of NAs. Theses columns are not the ones that we would like to use as predictors in our model. 
+
+Thus, these columns will be removed.
+
+```{r  collapse=TRUE}
+colsLess95NAs <- sapply(
+                    colnames(training), 
+                    function(x) (sum(is.na(training[, x]))/nrow(training)) < 0.95
+                  )
+
+training <- training[,colsLess95NAs]
+table(colsLess95NAs)
+```
+
+### Removing columns with almost no variation
+
+Next step, it's necessary to identify columns that don't exibit significant variation. Theses variables should be excluded from our prediction model because they offer no significance in changing the expected result.
+
+```{r collapse=TRUE, results='hide'}
+
+#Excluding columns with near zero variation
+nzv <- nearZeroVar(training, saveMetrics= TRUE)
+training <- training[,!nzv$nzv]
+```
+
+## Building a prediction model
+
+Now we're left with only `r ncol(training)` variables. For creating our model, we will center, scale and do a Principal Component Analysis for preprocessing the data, and then, using the Random Forest algorithm to fit a model for prediction.
+
+It takes almost 20 minutes to build the model, so we use the parallel package to speedup the training. We also check if there already is a previously built model. If it's the case, we load the model from the file.
+
+```{r collapse=TRUE, results='hide'}
+if(file.exists("./fit.rf.mda")) {
+    load("./fit.rf.mda")
+} else {
+    cluster <- makeCluster(detectCores())
+    registerDoParallel(cluster)
+    
+    fitControl <- trainControl(method = "cv",
+                               number = 10,
+                               allowParallel = TRUE)
+    
+    fit.rf <- train(classe ~ ., data = training, method="rf", preProc = c("center","scale","pca"), trControl = fitControl)
+    stopCluster(cluster)
+    
+    save(fit.rf, file="./fit.rf.mda")
+}
+
+```
+
+## Validating the prediction model
+
+Now it's time to validate our model. For this, its necessary to filter the same columns that was used on the training set.
+
+```{r collapse=TRUE}
+validation <- validation[,colsLess95NAs]
+validation <- validation[,!nzv$nzv]
+
+cm <- confusionMatrix(validation$classe, predict(fit.rf, newdata=validation))
+
+cm
+```
+
+As we can see in the confusionMatrix output, the accuracy on the validation set is `r format(cm$overall[[1]] * 100, digits = 3)`%. Thus, it seems that random forest algorithm plus the pre processing steps serve well to the purpose of predicting the kind of mistake of a given exercise.
+
+##Predicting values
+
+Now we can use our model to predict values on the test data set.
+
+```{r}
+testing <- testing[,colsLess95NAs]
+testing <- testing[,!nzv$nzv]
+predict(fit.rf, newdata=testing)
+```
+
